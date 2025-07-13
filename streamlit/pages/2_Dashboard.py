@@ -8,10 +8,10 @@ import seaborn as sns
 st.set_page_config(page_title="Dashboard", layout="wide")
 st.title("📊 OLA Insights Dashboard (CSV Version)")
 
-# --- Load CSV Instead of MySQL ---
+# --- Load CSV ---
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/ola_cleaned.csv", parse_dates=["datetime"])
+    df = pd.read_csv(r"../data/ola_cleaned.csv", parse_dates=["datetime"])
     return df
 
 df_csv = load_data()
