@@ -11,7 +11,7 @@ st.title("📊 OLA Insights Dashboard (CSV Version)")
 # --- Load CSV ---
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r"../data/ola_cleaned.csv", parse_dates=["datetime"])
+    df = pd.read_csv(r"data/ola_cleaned.csv", parse_dates=["datetime"])
     return df
 
 df_csv = load_data()
