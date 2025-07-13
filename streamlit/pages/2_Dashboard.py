@@ -1,126 +1,71 @@
-# streamlit/pages/2_Dashboard.py
 
 import streamlit as st
 import pandas as pd
-import mysql.connector
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # --- Page Setup ---
 st.set_page_config(page_title="Dashboard", layout="wide")
-st.title("📊 OLA Insights Dashboard")
+st.title("📊 OLA Insights Dashboard (CSV Version)")
 
-# --- MySQL Connection ---
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Sathish123",  # My password
-        database="ola_db"
-    )
+# --- Load CSV Instead of MySQL ---
+@st.cache_data
+def load_data():
+    df = pd.read_csv("data/ola_cleaned.csv", parse_dates=["datetime"])
+    return df
 
-def run_query(query):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(query)
-    cols = [i[0] for i in cursor.description]
-    rows = cursor.fetchall()
-    conn.close()
-    return pd.DataFrame(rows, columns=cols)
+df_csv = load_data()
 
 # --- Query Options ---
 query_options = {
     "1. Retrieve all successful bookings": {
-        "sql": "SELECT * FROM rides WHERE booking_status = 'Success';",
+        "data": df_csv[df_csv["booking_status"] == "Success"],
         "visual": "table"
     },
     "2. Average ride distance for each vehicle type": {
-        "sql": """
-            SELECT vehicle_type, 
-                   ROUND(AVG(ride_distance), 2) AS avg_distance_km
-            FROM rides
-            GROUP BY vehicle_type
-            ORDER BY avg_distance_km DESC;
-        """,
+        "data": df_csv.groupby("vehicle_type")["ride_distance"].mean().reset_index().sort_values(by="ride_distance", ascending=False).rename(columns={"ride_distance": "avg_distance_km"}),
         "visual": "bar",
         "x": "vehicle_type",
         "y": "avg_distance_km"
     },
     "3. Total cancelled rides by customers": {
-        "sql": """
-            SELECT booking_status, COUNT(*) AS total
-            FROM rides
-            WHERE booking_status = 'Canceled by Customer'
-            GROUP BY booking_status;
-        """,
-        "visual": "bar",
-        "x": "booking_status",
-        "y": "total"
+        "data": df_csv[df_csv["booking_status"] == "Cancelled by Customer"].groupby("booking_status").size().reset_index(name="total"),
+        "visual": "pie",
+        "label": "booking_status",
+        "value": "total"
     },
     "4. Top 5 customers by total rides": {
-        "sql": """
-            SELECT customer_id, COUNT(*) AS total_rides
-            FROM rides
-            GROUP BY customer_id
-            ORDER BY total_rides DESC
-            LIMIT 5;
-        """,
+        "data": df_csv.groupby("customer_id").size().reset_index(name="total_rides").sort_values(by="total_rides", ascending=False).head(5),
         "visual": "bar",
         "x": "customer_id",
         "y": "total_rides"
     },
     "5. Driver cancellations (reasons)": {
-        "sql": """
-            SELECT canceled_rides_by_driver, COUNT(*) AS total_cancellations
-            FROM rides
-            WHERE booking_status = 'Canceled by Driver'
-            AND canceled_rides_by_driver IS NOT NULL
-            GROUP BY canceled_rides_by_driver;
-        """,
+        "data": df_csv[(df_csv["booking_status"] == "Cancelled by Driver") & (df_csv["canceled_rides_by_driver"].notnull())].groupby("canceled_rides_by_driver").size().reset_index(name="total_cancellations"),
         "visual": "pie",
         "label": "canceled_rides_by_driver",
         "value": "total_cancellations"
     },
     "6. Max/Min driver ratings for Prime Sedan": {
-        "sql": """
-            SELECT MAX(driver_ratings) AS max_rating,
-                   MIN(driver_ratings) AS min_rating
-            FROM rides
-            WHERE vehicle_type = 'Prime Sedan';
-        """,
+        "data": df_csv[df_csv["vehicle_type"] == "Prime Sedan"]["driver_ratings"].agg(["max", "min"]).reset_index().rename(columns={"index": "stat", "driver_ratings": "value"}),
         "visual": "table"
     },
     "7. Rides paid via UPI": {
-        "sql": "SELECT * FROM rides WHERE payment_method = 'UPI';",
+        "data": df_csv[df_csv["payment_method"] == "UPI"],
         "visual": "table"
     },
     "8. Avg customer rating per vehicle type": {
-        "sql": """
-            SELECT vehicle_type, 
-                ROUND(AVG(customer_rating), 2) AS avg_customer_rating
-            FROM rides
-            GROUP BY vehicle_type
-            ORDER BY avg_customer_rating DESC;
-        """,
+        "data": df_csv.groupby("vehicle_type")["customer_rating"].mean().reset_index().rename(columns={"customer_rating": "avg_customer_rating"}).sort_values(by="avg_customer_rating", ascending=False),
         "visual": "hbar",
         "x": "avg_customer_rating",
         "y": "vehicle_type"
     },
     "9. Total booking value of successful rides": {
-        "sql": """
-            SELECT ROUND(SUM(booking_value), 2) AS total_success_revenue
-            FROM rides
-            WHERE booking_status = 'Success';
-        """,
+        "data": pd.DataFrame([{"total_success_revenue": df_csv[df_csv["booking_status"] == "Success"]["booking_value"].sum()}]),
         "visual": "table"
     },
     "10. Incomplete rides with reason": {
-        "sql": """
-            SELECT booking_id, customer_id, vehicle_type, 
-                   booking_status, incomplete_rides_reason
-            FROM rides
-            WHERE incomplete_rides = 'Yes';
-        """,
+        "data": df_csv[df_csv["incomplete_rides"] == "Yes"][["booking_id", "customer_id", "vehicle_type", "booking_status", "incomplete_rides_reason"]],
         "visual": "table"
     }
 }
@@ -129,8 +74,7 @@ query_options = {
 st.sidebar.header("🔍 Select Query")
 selected = st.sidebar.selectbox("Choose a query", list(query_options.keys()))
 
-# --- Query Execution ---
-query_data = run_query(query_options[selected]["sql"])
+query_data = query_options[selected]["data"]
 st.subheader("📋 Query Result")
 st.dataframe(query_data)
 
@@ -162,4 +106,4 @@ elif vis_type == "pie":
     st.pyplot(fig)
 
 elif vis_type == "table":
-    st.info("Table view only — no chart needed for this query.")
+    st.info("This query only needs a table view.")
