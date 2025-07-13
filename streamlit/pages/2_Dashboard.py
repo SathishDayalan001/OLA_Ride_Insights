@@ -29,7 +29,7 @@ query_options = {
         "y": "avg_distance_km"
     },
     "3. Total cancelled rides by customers": {
-        "data": df_csv[df_csv["booking_status"] == "Cancelled by Customer"].groupby("booking_status").size().reset_index(name="total"),
+        "data": df_csv[df_csv["booking_status"] == "Canceled by Customer"].groupby("booking_status").size().reset_index(name="total"),
         "visual": "pie",
         "label": "booking_status",
         "value": "total"
@@ -41,7 +41,7 @@ query_options = {
         "y": "total_rides"
     },
     "5. Driver cancellations (reasons)": {
-        "data": df_csv[(df_csv["booking_status"] == "Cancelled by Driver") & (df_csv["canceled_rides_by_driver"].notnull())].groupby("canceled_rides_by_driver").size().reset_index(name="total_cancellations"),
+        "data": df_csv[(df_csv["booking_status"] == "Canceled by Driver") & (df_csv["canceled_rides_by_driver"].notnull())].groupby("canceled_rides_by_driver").size().reset_index(name="total_cancellations"),
         "visual": "pie",
         "label": "canceled_rides_by_driver",
         "value": "total_cancellations"
