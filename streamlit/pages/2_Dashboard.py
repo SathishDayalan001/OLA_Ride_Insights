@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,10 +10,14 @@ st.title("📊 OLA Insights Dashboard (CSV Version)")
 # --- Load CSV ---
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r"data/ola_cleaned.csv", parse_dates=["datetime"])
+    df = pd.read_csv(r"../data/ola_cleaned.csv", parse_dates=["datetime"])
     return df
 
 df_csv = load_data()
+
+# --- Data Preprocessing for Derived Queries ---
+df_csv["hour"] = df_csv["datetime"].dt.hour
+df_csv["day"] = df_csv["datetime"].dt.day_name()
 
 # --- Query Options ---
 query_options = {
@@ -67,6 +70,36 @@ query_options = {
     "10. Incomplete rides with reason": {
         "data": df_csv[df_csv["incomplete_rides"] == "Yes"][["booking_id", "customer_id", "vehicle_type", "booking_status", "incomplete_rides_reason"]],
         "visual": "table"
+    },
+    "11. Rides by Hour of Day": {
+        "data": df_csv.groupby("hour").size().reset_index(name="total_rides"),
+        "visual": "bar",
+        "x": "hour",
+        "y": "total_rides"
+    },
+    "12. Payment Method Preference Count": {
+        "data": df_csv.groupby("payment_method").size().reset_index(name="total"),
+        "visual": "pie",
+        "label": "payment_method",
+        "value": "total"
+    },
+    "13. Average Ride Distance by Day of Week": {
+        "data": df_csv.groupby("day")["ride_distance"].mean().reset_index().rename(columns={"ride_distance": "avg_distance"}).sort_values(by="day"),
+        "visual": "line",
+        "x": "day",
+        "y": "avg_distance"
+    },
+    "14. Total Revenue by Vehicle Type": {
+        "data": df_csv.groupby("vehicle_type")["booking_value"].sum().reset_index().rename(columns={"booking_value": "total_revenue"}).sort_values(by="total_revenue", ascending=False),
+        "visual": "bar",
+        "x": "vehicle_type",
+        "y": "total_revenue"
+    },
+    "15. Rides Rated 5 Stars by Customers": {
+        "data": df_csv[df_csv["customer_rating"] == 5].groupby("vehicle_type").size().reset_index(name="five_star_count"),
+        "visual": "bar",
+        "x": "vehicle_type",
+        "y": "five_star_count"
     }
 }
 
@@ -95,6 +128,14 @@ elif vis_type == "hbar":
     y = query_options[selected]["y"]
     fig, ax = plt.subplots(figsize=(8, 4))
     sns.barplot(data=query_data, x=x, y=y, palette='Greens_d', orient='h')
+    st.pyplot(fig)
+
+elif vis_type == "line":
+    x = query_options[selected]["x"]
+    y = query_options[selected]["y"]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.lineplot(data=query_data, x=x, y=y, marker="o")
+    plt.xticks(rotation=30)
     st.pyplot(fig)
 
 elif vis_type == "pie":
